@@ -1,0 +1,64 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>06229d91-9a99-4e0e-90ce-28e22edc7cbb</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>SyntheticErrandsScheduler\main.py</StartupFile>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <Name>PyScheduler v2</Name>
+    <RootNamespace>PyScheduler v2</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="setup.py" />
+    <Compile Include="SyntheticErrandsScheduler\config.py" />
+    <Compile Include="SyntheticErrandsScheduler\gui\plot_utils.py" />
+    <Compile Include="SyntheticErrandsScheduler\gui\scheduler_gui.py" />
+    <Compile Include="SyntheticErrandsScheduler\gui\__init__.py" />
+    <Compile Include="SyntheticErrandsScheduler\main.py" />
+    <Compile Include="SyntheticErrandsScheduler\algorithms\local_search.py" />
+    <Compile Include="SyntheticErrandsScheduler\algorithms\initial_solution.py" />
+    <Compile Include="SyntheticErrandsScheduler\algorithms\perturbation.py" />
+    <Compile Include="SyntheticErrandsScheduler\algorithms\mils.py" />
+    <Compile Include="SyntheticErrandsScheduler\algorithms\__init__.py" />
+    <Compile Include="SyntheticErrandsScheduler\models\contractor.py" />
+    <Compile Include="SyntheticErrandsScheduler\models\errand.py" />
+    <Compile Include="SyntheticErrandsScheduler\models\location.py" />
+    <Compile Include="SyntheticErrandsScheduler\models\schedule.py" />
+    <Compile Include="SyntheticErrandsScheduler\models\__init__.py" />
+    <Compile Include="SyntheticErrandsScheduler\utils\city_map.py" />
+    <Compile Include="SyntheticErrandsScheduler\utils\travel_time.py" />
+    <Compile Include="SyntheticErrandsScheduler\utils\__init__.py" />
+    <Compile Include="SyntheticErrandsScheduler\__init__.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="SyntheticErrandsScheduler\models\" />
+    <Folder Include="SyntheticErrandsScheduler\algorithms\" />
+    <Folder Include="SyntheticErrandsScheduler\gui\" />
+    <Folder Include="SyntheticErrandsScheduler\" />
+    <Folder Include="SyntheticErrandsScheduler\utils\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="SyntheticErrandsScheduler\requirements.txt" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
+  <!-- Uncomment the CoreCompile target to enable the Build command in
+       Visual Studio and specify your pre- and post-build commands in
+       the BeforeBuild and AfterBuild targets below. -->
+  <!--<Target Name="CoreCompile" />-->
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+</Project>
