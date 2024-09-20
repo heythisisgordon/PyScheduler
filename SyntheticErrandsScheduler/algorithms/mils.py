@@ -9,7 +9,7 @@ from SyntheticErrandsScheduler.algorithms.perturbation import adaptive_perturbat
 # Set up logging
 logging.basicConfig(filename='mils_error.log', level=logging.DEBUG)
 
-def modified_iterated_local_search(schedule, max_iterations=1000, max_time=300, temperature=1.0, cooling_rate=0.995):
+def modified_iterated_local_search(schedule, max_iterations=1000, max_time=60, temperature=1.0, cooling_rate=0.995):
     """
     Perform Modified Iterated Local Search to find a good schedule.
 
@@ -35,7 +35,7 @@ def modified_iterated_local_search(schedule, max_iterations=1000, max_time=300, 
         logging.debug(f"Initial solution generated: {current_solution}")
         
         logging.info("Performing initial local search")
-        current_solution = local_search(current_solution)
+        current_solution = local_search(current_solution, max_time=10)  # Set a time limit for local search
         logging.debug(f"After initial local search: {current_solution}")
         
         best_solution = current_solution.copy()
@@ -54,7 +54,7 @@ def modified_iterated_local_search(schedule, max_iterations=1000, max_time=300, 
                 
                 # Local search
                 logging.info("Performing local search")
-                improved_solution = local_search(perturbed_solution)
+                improved_solution = local_search(perturbed_solution, max_time=5)  # Set a time limit for local search
                 logging.debug(f"After local search: {improved_solution}")
                 
                 # Calculate profits
@@ -91,11 +91,18 @@ def modified_iterated_local_search(schedule, max_iterations=1000, max_time=300, 
             except Exception as e:
                 logging.error(f"Error in iteration {iteration}: {str(e)}")
                 logging.error(f"Current solution: {current_solution}")
-                raise  # Re-raise the exception after logging
+                # Instead of raising, let's continue to the next iteration
+                continue
+
+            # Check if time limit is reached
+            if time.time() - start_time >= max_time:
+                logging.info("Time limit reached. Stopping MILS.")
+                break
     
     except Exception as e:
         logging.error(f"Error in modified_iterated_local_search: {str(e)}")
-        raise  # Re-raise the exception after logging
+        logging.exception("Exception traceback:")
+        return schedule  # Return the original schedule if an error occurs
     
     logging.info("Finished modified_iterated_local_search")
     return best_solution

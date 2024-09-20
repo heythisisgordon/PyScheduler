@@ -60,6 +60,18 @@ class SchedulerGUI:
         # Progress bar
         self.progress_bar = ttk.Progressbar(self.left_frame, orient="horizontal", length=200, mode="indeterminate")
         self.progress_bar.grid(row=5, column=0, columnspan=2, pady=10)
+        
+        # Add a new frame for displaying initial conditions
+        self.initial_conditions_frame = ttk.LabelFrame(self.left_frame, text="Initial Conditions")
+        self.initial_conditions_frame.grid(row=6, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
+
+        # Add a text widget to display initial conditions
+        self.initial_conditions_text = scrolledtext.ScrolledText(self.initial_conditions_frame, wrap=tk.WORD, width=30, height=10)
+        self.initial_conditions_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Add an Edit button
+        self.edit_button = ttk.Button(self.initial_conditions_frame, text="Edit", command=self.edit_initial_conditions)
+        self.edit_button.pack(pady=5)
 
     def create_output_widgets(self):
         # Create text area for output
@@ -67,7 +79,7 @@ class SchedulerGUI:
         self.output_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         # Create a figure for the plot
-        self.fig, self.ax = create_plot()
+        self.fig, self.ax = plt.subplots(figsize=(8, 8))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.right_frame)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -100,6 +112,8 @@ class SchedulerGUI:
             
             self.visualize_problem()
 
+            self.display_initial_conditions()
+
         except ValueError as e:
             messagebox.showerror("Input Error", str(e))
 
@@ -117,7 +131,7 @@ class SchedulerGUI:
 
     def _solve_and_update(self):
         try:
-            solution = modified_iterated_local_search(self.schedule)
+            solution = modified_iterated_local_search(self.schedule, max_time=60)  # Set a 60-second time limit
             
             self.master.after(0, self._update_solution, solution)
         except Exception as e:
@@ -130,10 +144,20 @@ class SchedulerGUI:
         self.output_text.delete(1.0, tk.END)
         self.output_text.insert(tk.END, f"Total profit: ${solution.calculate_total_profit():.2f}\n\n")
 
+        # Add errand types summary
+        self.output_text.insert(tk.END, "Errand Types Summary:\n")
+        for errand_type, details in ERRANDS.items():
+            self.output_text.insert(tk.END, f"{errand_type}:\n")
+            self.output_text.insert(tk.END, f"  Charge: ${details['charge']}\n")
+            self.output_text.insert(tk.END, f"  Time: {details['time']} minutes\n")
+            self.output_text.insert(tk.END, f"  Home Required: {details['home_required']}\n")
+            self.output_text.insert(tk.END, f"  Early Incentive: {details['early_incentive']}\n")
+            self.output_text.insert(tk.END, f"  Late Penalty: {details['late_penalty']}\n\n")
+
         for day in range(solution.num_days):
             self.output_text.insert(tk.END, f"Day {day + 1}:\n")
             for errand, contractor, start_time in solution.assignments[day]:
-                self.output_text.insert(tk.END, f"  Contractor {contractor.id}: Errand {errand.id} ({errand.type}) at {start_time // 60:02d}:{start_time % 60:02d}\n")
+                self.output_text.insert(tk.END, f"  Contractor {contractor.id}: Errand {errand.id} ({errand.type}) at {int(start_time) // 60:02d}:{int(start_time) % 60:02d}\n")
             self.output_text.insert(tk.END, "\n")
 
         self.visualize_solution(solution)
@@ -146,7 +170,46 @@ class SchedulerGUI:
     def visualize_solution(self, solution):
         self.ax.clear()
         plot_solution(self.ax, solution)
+        self.fig.tight_layout()
         self.canvas.draw()
+
+    def display_initial_conditions(self):
+        self.initial_conditions_text.delete(1.0, tk.END)
+        for i, errand in enumerate(self.errands):
+            self.initial_conditions_text.insert(tk.END, f"Errand {i}: {errand.type} at ({errand.location.x}, {errand.location.y})\n")
+        for i, contractor in enumerate(self.contractors):
+            self.initial_conditions_text.insert(tk.END, f"Contractor {i}: Start at ({contractor.start_location.x}, {contractor.start_location.y})\n")
+
+    def edit_initial_conditions(self):
+        edit_window = tk.Toplevel(self.master)
+        edit_window.title("Edit Initial Conditions")
+
+        text_widget = scrolledtext.ScrolledText(edit_window, wrap=tk.WORD, width=40, height=20)
+        text_widget.pack(padx=10, pady=10)
+        text_widget.insert(tk.END, self.initial_conditions_text.get(1.0, tk.END))
+
+        def save_changes():
+            new_conditions = text_widget.get(1.0, tk.END).strip().split('\n')
+            self.errands = []
+            self.contractors = []
+            for line in new_conditions:
+                if line.startswith("Errand"):
+                    parts = line.split()
+                    errand_type = parts[2]
+                    x, y = map(int, parts[-1][1:-1].split(','))
+                    self.errands.append(Errand(len(self.errands), errand_type, Location(x, y)))
+                elif line.startswith("Contractor"):
+                    parts = line.split()
+                    x, y = map(int, parts[-1][1:-1].split(','))
+                    self.contractors.append(Contractor(len(self.contractors), Location(x, y)))
+            
+            self.schedule = Schedule(self.contractors, self.errands)
+            self.display_initial_conditions()
+            self.visualize_problem()
+            edit_window.destroy()
+
+        save_button = ttk.Button(edit_window, text="Save Changes", command=save_changes)
+        save_button.pack(pady=10)
 
 def main():
     root = tk.Tk()
