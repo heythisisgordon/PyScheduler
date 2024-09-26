@@ -11,7 +11,8 @@ from .city_map import (
     get_area_type,
     is_valid_location,
     is_on_road,
-    find_nearest_road
+    find_nearest_road,
+    plot_schedule
 )
 
 __all__ = [
@@ -24,5 +25,6 @@ __all__ = [
     'get_area_type',
     'is_valid_location',
     'is_on_road',
-    'find_nearest_road'
+    'find_nearest_road',
+    'plot_schedule'
 ]

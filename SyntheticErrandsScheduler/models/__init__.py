@@ -1,3 +1,5 @@
+# models/__init__.py
+
 from .location import Location
 from .errand import Errand
 from .contractor import Contractor

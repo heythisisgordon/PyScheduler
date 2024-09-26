@@ -1,14 +1,15 @@
-from SyntheticErrandsScheduler.config import WORK_START, WORK_END, MAX_DAYS
+from SyntheticErrandsScheduler.config import WORK_START, WORK_END, MAX_DAYS, SLA_DAYS
 from SyntheticErrandsScheduler.utils.travel_time import calculate_travel_time
-import copy
-import logging  # This is needed to enable logging in this file
-logging.basicConfig(level=logging.DEBUG)  # This sets the logging level to DEBUG
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 class Schedule:
     def __init__(self, contractors, errands):
         self.contractors = contractors
         self.errands = errands
         self.unassigned_errands = set(errands)
+        self.completed_errands = set()
         self.assignments = {d: [] for d in range(MAX_DAYS)}
         self.total_profit = 0
 
@@ -16,55 +17,56 @@ class Schedule:
     def num_days(self):
         return MAX_DAYS
 
+    def can_assign_errand(self, contractor, errand, day, start_time):
+        if errand not in self.unassigned_errands:
+            return False
+        
+        if not errand.are_predecessors_completed(self.completed_errands):
+            return False
+
+        travel_time = calculate_travel_time(contractor.current_location, errand.location)
+        arrival_time = start_time + travel_time
+        end_time = arrival_time + errand.service_time
+
+        return end_time <= WORK_END or day == MAX_DAYS - 1  # Allow overflow on the last day
+
     def assign_errand(self, contractor, errand, day, start_time):
         try:
-            travel_time = calculate_travel_time(contractor.current_location, errand.location)
-            
             logging.debug(f"Trying to assign errand {errand.id} to contractor {contractor.id} on day {day} at {start_time}")
 
-            if contractor.can_perform_errand(errand, start_time, travel_time):
-                contractor.assign_errand(day, errand, start_time + travel_time)
-                self.assignments[day].append((errand, contractor, start_time + travel_time))
-                if errand in self.unassigned_errands:
-                    self.unassigned_errands.remove(errand)
-                self.total_profit += errand.calculate_profit(day, MAX_DAYS)
+            if self.can_assign_errand(contractor, errand, day, start_time):
+                travel_time = calculate_travel_time(contractor.current_location, errand.location)
+                arrival_time = start_time + travel_time
+
+                contractor.assign_errand(day, errand, arrival_time)
+                self.assignments[day].append((errand, contractor, arrival_time))
+                self.unassigned_errands.remove(errand)
+                self.completed_errands.add(errand)
+                self.total_profit += errand.charge
                 logging.debug(f"Successfully assigned errand {errand.id} to contractor {contractor.id}")
                 return True
             else:
-                logging.debug(f"Cannot perform errand {errand.id}: Time constraint violation")
+                logging.debug(f"Cannot perform errand {errand.id}: Time conflict or predecessors not completed")
         except Exception as e:
             logging.error(f"Error assigning errand {errand.id}: {str(e)}")
         return False
 
-    def remove_assignment(self, day, assignment):
-        if assignment in self.assignments[day]:
-            self.assignments[day].remove(assignment)
-            errand, contractor, _ = assignment
-            contractor.schedule[day] = [a for a in contractor.schedule[day] if a[0] != errand]
-            self.unassigned_errands.add(errand)
-            self.total_profit -= errand.calculate_profit(day, MAX_DAYS)
-
     def calculate_total_profit(self):
-        total_profit = 0
-        for day in range(MAX_DAYS):
-            for errand, _, _ in self.assignments[day]:
-                total_profit += errand.calculate_profit(day, MAX_DAYS)
-        self.total_profit = total_profit
-        return total_profit
+        return sum(errand.charge for day in self.assignments for errand, _, _ in self.assignments[day])
 
-    def is_valid(self):
-        for day in range(MAX_DAYS):
-            for contractor in self.contractors:
-                if day in contractor.schedule:
-                    last_end_time = WORK_START
-                    for errand, start_time in contractor.schedule[day]:
-                        travel_time = calculate_travel_time(contractor.current_location, errand.location)
-                        if start_time < last_end_time + travel_time or start_time + errand.service_time > WORK_END:
-                            return False
-                        last_end_time = start_time + errand.service_time
-                        contractor.current_location = errand.location
-                contractor.reset_day()
-        return True
+    def calculate_sla_compliance(self):
+        total_errands = len(self.errands)
+        completed_errands = len(self.completed_errands)
+        return completed_errands / total_errands if total_errands > 0 else 1.0
+
+    def calculate_resource_utilization(self):
+        total_work_time = (WORK_END - WORK_START) * MAX_DAYS * len(self.contractors)
+        used_time = sum(
+            min(errand.service_time, WORK_END - start_time)  # Cap at WORK_END
+            for day in self.assignments
+            for errand, _, start_time in self.assignments[day]
+        )
+        return used_time / total_work_time if total_work_time > 0 else 0.0
 
     def get_unassigned_errands(self):
         return list(self.unassigned_errands)
@@ -74,3 +76,22 @@ class Schedule:
 
     def __repr__(self):
         return self.__str__()
+
+    def print_schedule(self):
+        for day in range(MAX_DAYS):
+            print(f"Day {day + 1}:")
+            for errand, contractor, start_time in self.assignments[day]:
+                end_time = start_time + errand.service_time
+                print(f"  Contractor {contractor.id}: Errand {errand.id} ({start_time} - {end_time})")
+            print()
+
+    def get_contractor_schedule(self, contractor_id):
+        schedule = []
+        for day in range(MAX_DAYS):
+            day_schedule = [
+                (errand, start_time)
+                for errand, cont, start_time in self.assignments[day]
+                if cont.id == contractor_id
+            ]
+            schedule.append(day_schedule)
+        return schedule

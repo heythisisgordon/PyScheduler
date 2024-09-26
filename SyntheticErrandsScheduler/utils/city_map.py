@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from SyntheticErrandsScheduler.config import GRID_SIZE, BUSYVILLE_MAP, ROAD_NETWORK, RESIDENTIAL, COMMERCIAL, PARK, INDUSTRIAL
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Patch
+from SyntheticErrandsScheduler.config import GRID_SIZE, BUSYVILLE_MAP, ROAD_NETWORK, RESIDENTIAL, COMMERCIAL, PARK, INDUSTRIAL, ERRAND_COLORS
 
 def visualize_city_map(ax=None, show_roads=True):
     """
@@ -14,21 +16,31 @@ def visualize_city_map(ax=None, show_roads=True):
         matplotlib.figure.Figure: The figure object containing the visualized map.
     """
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 10))
+        fig, ax = plt.subplots(figsize=(12, 10))
     else:
         fig = ax.figure
 
     # Create a custom colormap for the different area types
-    cmap = plt.cm.colors.ListedColormap(['#FFF7BC', '#7FCDBB', '#41B6C4', '#1D91C0'])
+    colors = ['#FFF7BC', '#7FCDBB', '#41B6C4', '#1D91C0']
+    cmap = ListedColormap(colors)
     bounds = [RESIDENTIAL - 0.5, RESIDENTIAL + 0.5, COMMERCIAL + 0.5, PARK + 0.5, INDUSTRIAL + 0.5]
     norm = plt.cm.colors.BoundaryNorm(bounds, cmap.N)
 
     # Plot the city map
     im = ax.imshow(BUSYVILLE_MAP, cmap=cmap, norm=norm)
 
-    # Add a color bar
-    cbar = plt.colorbar(im, ax=ax, ticks=[RESIDENTIAL, COMMERCIAL, PARK, INDUSTRIAL])
-    cbar.set_ticklabels(['Residential', 'Commercial', 'Park', 'Industrial'])
+    # Create legend patches
+    legend_elements = [
+        Patch(facecolor=colors[0], edgecolor='black', label='Residential'),
+        Patch(facecolor=colors[1], edgecolor='black', label='Commercial'),
+        Patch(facecolor=colors[2], edgecolor='black', label='Park'),
+        Patch(facecolor=colors[3], edgecolor='black', label='Industrial')
+    ]
+
+    # Add the legend
+    legend = ax.legend(handles=legend_elements, loc='lower right', title="Map Legend", 
+                       fontsize='medium', title_fontsize='large', bbox_to_anchor=(0.98, 0.02),
+                       bbox_transform=ax.transAxes, frameon=True, fancybox=True, shadow=True)
 
     # Overlay the road network if requested
     if show_roads:
@@ -39,27 +51,41 @@ def visualize_city_map(ax=None, show_roads=True):
     ax.set_xlabel('X coordinate')
     ax.set_ylabel('Y coordinate')
 
+    # Adjust the plot layout to accommodate the legend
+    plt.tight_layout()
+    plt.subplots_adjust(right=0.9, bottom=0.1)
+
     return fig
 
-def plot_route(route, ax=None):
+def plot_route(route, ax=None, color='red', alpha=0.7, linewidth=2, show_direction=True):
     """
     Plot a route on the city map.
 
     Args:
         route (list): List of Location objects representing the route.
         ax (matplotlib.axes.Axes, optional): The axes to plot on. If None, a new figure is created.
+        color (str): Color of the route line.
+        alpha (float): Transparency of the route line.
+        linewidth (float): Width of the route line.
+        show_direction (bool): If True, show arrowheads indicating direction.
 
     Returns:
         matplotlib.figure.Figure: The figure object containing the plotted route.
     """
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 10))
-        visualize_city_map(show_roads=True)
+        fig, ax = plt.subplots(figsize=(12, 10))
+        visualize_city_map(ax=ax, show_roads=True)
     else:
         fig = ax.figure
 
     x_coords, y_coords = zip(*[(loc.x, loc.y) for loc in route])
-    ax.plot(x_coords, y_coords, 'ro-', linewidth=2, markersize=8, alpha=0.7)
+    
+    if show_direction:
+        for i in range(len(x_coords) - 1):
+            ax.annotate('', xy=(x_coords[i+1], y_coords[i+1]), xytext=(x_coords[i], y_coords[i]),
+                        arrowprops=dict(arrowstyle='->', color=color, alpha=alpha, linewidth=linewidth))
+    else:
+        ax.plot(x_coords, y_coords, color=color, alpha=alpha, linewidth=linewidth)
     
     # Annotate start and end
     ax.annotate('Start', (x_coords[0], y_coords[0]), xytext=(5, 5), textcoords='offset points')
@@ -127,3 +153,42 @@ def find_nearest_road(location):
 
     # If we get here, there's no road on the map (shouldn't happen in a normal city map)
     raise ValueError("No road found on the map")
+
+def plot_schedule(schedule, day, ax=None):
+    """
+    Plot the schedule for a specific day on the city map.
+
+    Args:
+        schedule (Schedule): The schedule to plot.
+        day (int): The day to plot.
+        ax (matplotlib.axes.Axes, optional): The axes to plot on. If None, a new figure is created.
+
+    Returns:
+        matplotlib.figure.Figure: The figure object containing the plotted schedule.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, 10))
+        visualize_city_map(ax=ax, show_roads=True)
+    else:
+        fig = ax.figure
+
+    for errand, contractor, start_time in schedule.assignments[day]:
+        color = ERRAND_COLORS.get(errand.type, 'black')
+        plot_route([contractor.current_location, errand.location], ax=ax, color=color)
+        
+        ax.plot(errand.location.x, errand.location.y, 'o', color=color, markersize=8)
+        ax.annotate(f"E{errand.id}", (errand.location.x, errand.location.y), xytext=(5, 5), textcoords='offset points')
+
+    ax.set_title(f'Schedule for Day {day + 1}')
+    
+    # Create a legend for errand types
+    legend_elements = [plt.Line2D([0], [0], marker='o', color='w', label=errand_type,
+                                  markerfacecolor=color, markersize=8)
+                       for errand_type, color in ERRAND_COLORS.items()]
+    ax.legend(handles=legend_elements, title="Errand Types", loc='upper left', bbox_to_anchor=(1, 1), fontsize='small')
+
+    # Adjust the plot layout to accommodate the legends
+    plt.tight_layout()
+    plt.subplots_adjust(right=0.85)
+
+    return fig
